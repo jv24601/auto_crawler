@@ -26,6 +26,8 @@ def get_batch_size()->int:
     batch_size = crawler_settings.settings.get('batch_size')
     if(batch_size==None):
         return int(get_throttle_limit()/20)
+    else:
+        return batch_size
 
 BATCH_SIZE = get_batch_size()
 
