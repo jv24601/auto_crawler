@@ -1,9 +1,13 @@
 from utils import *
-from db_services import get_connection,insert_webpage_or_do_nothing,get_current_total_pages,get_batch_of_webpages,update_urls_as_parsed,insert_linkmapping
+from db_services import *
+
 import sqlalchemy as db
+from throttler import Throttler
+from bs4 import BeautifulSoup
+import time
 
-
-async def process_batch(depth,throttler,batch,conn):
+async def process_batch(depth:int,throttler: Throttler,batch:list[any],conn:db.Connection):
+    t = time.time()
     async with aiohttp.ClientSession() as session:
         
         source_urls = [row[0] for row in batch]
@@ -21,7 +25,7 @@ async def process_batch(depth,throttler,batch,conn):
             destination_links = get_links_from_html(source_html)
 
             #todo: update linkmap table with sourceurl, destination links
-            #destination_links = destination_links[0:min(10,len(destination_links))]
+            #destination_links = destination_links[0:min(5,len(destination_links))]
 
             for destination_link in destination_links:
                 insert_linkmapping(source_url,destination_link,conn)
@@ -37,12 +41,16 @@ async def process_batch(depth,throttler,batch,conn):
         # group and Execute tasks concurrently3
         htmls = await asyncio.gather(*tasks)
 
-        # todo: batch insert
+        # todo: batch insert, skip names gracefully
         for url, html in zip(fetch_urls, htmls):
-            insert_webpage_or_do_nothing(url,html,depth+1,False,conn)
+            if(html!=None and False):
+                name = get_page_name(BeautifulSoup(html,'html.parser'))
+            else:
+                name=''
+            insert_webpage_or_do_nothing(url,html,depth+1,False,name,conn)
 
         conn.commit()
-
+        print(f'Split time:{time.time()-t}')
 
 async def main():
 
@@ -50,31 +58,21 @@ async def main():
     async with aiohttp.ClientSession() as session:
 
         iresponse = await fetch_page(session,throttler,get_starting_url())
-        #isoup = BeautifulSoup(iresponse,'html.parser')
-        #name = get_page_name(isoup)
 
     depth = 0
 
-    #loopify starting here, need the database
+    name = get_page_name(BeautifulSoup(iresponse,'html.parser'))
+
     conn,engine = get_connection()
 
+    insert_webpage_or_do_nothing(get_starting_url(),iresponse,depth,False,name,conn)
 
-    insert_webpage_or_do_nothing(get_starting_url(),iresponse,depth,False,conn)
-
-    #urls = get_links_from_soup(isoup)
-
-    total_pages = get_current_total_pages(conn)
     batch = get_batch_of_webpages(depth,conn)
-    conn.close()
+    total_pages = get_current_total_pages(conn)
 
-        
-        #Todo: modularize into parse-batch
     while(depth < get_max_depth() and total_pages < get_absolute_page_limit()):
 
-        conn,engine = get_connection()
-
         batch = get_batch_of_webpages(depth,conn)
-        print(len(batch))
         
         await process_batch(depth,throttler,batch,conn)
 
@@ -82,15 +80,15 @@ async def main():
         
         if(len(batch)==0):
             depth += 1
-
        
         print(depth,total_pages)
-        conn.commit()    
-        conn.close()
 
+    init_downstream_cache(conn)  
 
-
-
+    conn.close()
 
 if __name__=='__main__':
     asyncio.run(main())
+
+    
+
