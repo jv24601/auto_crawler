@@ -33,7 +33,8 @@ def _init_db(metadata:db.MetaData,conn:db.Connection):
                        db.Column('html',db.Text()),
                        db.Column('depth',db.Integer()),
                        db.Column('parsed',db.Boolean()),
-                       db.Column('name',db.Text())
+                       db.Column('name',db.Text()),
+                       db.Column('text',db.Text())
                        ) #Table object
     
     linkmap = db.Table('linkmap',metadata,
@@ -111,7 +112,7 @@ def _init_ranks(conn: db.Connection):
     conn.execute(do_nothing_stmt)
     conn.commit()
 
-def _update_names(conn: db.Connection):
+def _update_names_and_text(conn: db.Connection):
 
     n_updates = 0
 
@@ -119,8 +120,10 @@ def _update_names(conn: db.Connection):
         if(not(html==None) and not(html=='')):
             
             try:
-                name = get_page_name(BeautifulSoup(html,'html.parser'))
-                conn.execute(db.update(webpage).where(webpage.c.url == url).values(name=name))
+                soup = BeautifulSoup(html,'html.parser')
+                name = get_page_name(soup)
+                text = soup.get_text()
+                conn.execute(db.update(webpage).where(webpage.c.url == url).values(name=name,text=text))
                 n_updates+=1
             except:
                 pass
@@ -144,7 +147,7 @@ def _init_connectedpages(conn: db.Connection):
 
 def init_downstream_cache(conn: db.Connection):
     _init_ranks(conn)
-    _update_names(conn)
+    _update_names_and_text(conn)
     _init_connectedpages(conn)
 
 def breakdown_generated_tables(conn: db.Connection):
