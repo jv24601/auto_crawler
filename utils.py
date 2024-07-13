@@ -3,7 +3,6 @@ import aiohttp
 from throttler import Throttler
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse,urljoin,urldefrag,urlunparse
-
 import crawler_settings
 
 def is_none_or_empty(val)->bool:
@@ -22,12 +21,10 @@ def get_throttle_limit()->int:
 def get_max_depth()->int:
     return crawler_settings.settings.get('depth')
 
+# returns a default
 def get_batch_size()->int:
     batch_size = crawler_settings.settings.get('batch_size')
-    if(batch_size==None):
-        return int(get_throttle_limit()/20)
-    else:
-        return batch_size
+    return batch_size
 
 BATCH_SIZE = get_batch_size()
 
@@ -59,9 +56,10 @@ def get_links_from_html(html:str)->list[str]:
         return []
     else:
         return get_links_from_soup(BeautifulSoup(html,'html.parser'))
-    
+
+
+# get all the links from a Beautiful Soup as urls
 def get_links_from_soup(soup:BeautifulSoup)->list[str]:
-    # get all the links from a Beautiful Soup as urls
 
     links = []
 
@@ -79,8 +77,6 @@ def get_links_from_soup(soup:BeautifulSoup)->list[str]:
             links.append(urljoin(parsed_result.scheme, parsed_result.netloc,parsed_result.path))   
 
     return list(set(links))
-
-
 
 # makes a throttled web request
 async def fetch_page(session:aiohttp.ClientSession,throttler:Throttler,url:str)->str: 

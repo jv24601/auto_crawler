@@ -328,7 +328,7 @@ __pycache__/
 *.pyc
 
 # Cake - Uncomment if you are using it
-# tools/**
+# tools/**get_pagetype
 # !tools/packages.config
 
 # Tabs Studio
@@ -402,8 +402,7 @@ FodyWeavers.xsd
 *.sqlite-journal
 
 # personal notes
-*.txt
+notes.txt
 *eda.ipynb
-data_utils.py
 spark_processing.ipynb
 albums.json

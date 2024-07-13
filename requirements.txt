@@ -1,0 +1,4 @@
+aiohttp
+throttler
+sqlalchemy
+sqlalchemy_utils
