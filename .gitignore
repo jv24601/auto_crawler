@@ -404,3 +404,6 @@ FodyWeavers.xsd
 # personal notes
 *.txt
 *eda.ipynb
+data_utils.py
+spark_processing.ipynb
+albums.json

@@ -3,7 +3,10 @@ import sqlalchemy as db
 from urllib.parse import urljoin,urlparse
 from sqlalchemy_utils import database_exists, create_database
 from utils import BATCH_SIZE,get_page_name
+from data_utils import *
 from bs4 import BeautifulSoup
+import aiohttp
+from throttler import Throttler
 
 # initialize database: this will connect to an sqlite3 db by default or connect to a db url
 
@@ -34,7 +37,8 @@ def _init_db(metadata:db.MetaData,conn:db.Connection):
                        db.Column('depth',db.Integer()),
                        db.Column('parsed',db.Boolean()),
                        db.Column('name',db.Text()),
-                       db.Column('text',db.Text())
+                       db.Column('text',db.Text()),
+                       db.Column('pagetype',db.Text())
                        ) #Table object
     
     linkmap = db.Table('linkmap',metadata,
@@ -82,6 +86,27 @@ linkmap = _get_table_by_name('linkmap')
 rank = _get_table_by_name('rank')
 connectedpages = _get_table_by_name('connectedpages')
 
+def add_column_to_table( table:str,column:str,data_type:str,conn:db.Connection|None = None):
+
+    should_close = False
+    if(conn==None):
+        conn, engine =get_connection()
+        should_close = True
+
+    try:
+        conn.execute(db.text(f'ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {data_type}'))
+        conn.commit()
+    except:
+        pass
+
+    if(should_close):
+        conn.close()
+
+    
+
+
+    
+
 def insert_webpage_or_do_nothing(url:str,html:str,depth:int,parsed:bool,name:str,conn: db.Connection):
 
     insert_query = db.dialects.sqlite.insert(webpage).values(url=url,html=html,depth=depth,parsed=parsed,name=name)
@@ -112,24 +137,31 @@ def _init_ranks(conn: db.Connection):
     conn.execute(do_nothing_stmt)
     conn.commit()
 
-def _update_names_and_text(conn: db.Connection):
+def _update_names_text_type(conn: db.Connection):
 
     n_updates = 0
 
-    for url,html in conn.execute(db.select(webpage.c.url,webpage.c.html).where(webpage.c.name == '')):
+    for url,html in conn.execute(db.select(webpage.c.url,webpage.c.html).where(db.or_(webpage.c.name == '',webpage.c.pagetype==''))):
         if(not(html==None) and not(html=='')):
             
             try:
                 soup = BeautifulSoup(html,'html.parser')
                 name = get_page_name(soup)
                 text = soup.get_text()
-                conn.execute(db.update(webpage).where(webpage.c.url == url).values(name=name,text=text))
+                pagetype = get_pagetype(soup=soup)
+                conn.execute(db.update(webpage).where(webpage.c.url == url).values(name=name,text=text,pagetype=pagetype))
                 n_updates+=1
-            except:
+                if(n_updates%100==0):
+                    print(n_updates, ' pages updated.')
+                    print(pagetype)
+                    conn.commit()
+                
+            except Exception as e:
+                print(e)
                 pass
-            if(n_updates%100==0):
-                print(n_updates, ' page names updated.')
-                conn.commit()
+            
+
+
 
 def _init_connectedpages(conn: db.Connection):
 
@@ -147,7 +179,7 @@ def _init_connectedpages(conn: db.Connection):
 
 def init_downstream_cache(conn: db.Connection):
     _init_ranks(conn)
-    _update_names_and_text(conn)
+    _update_names_text_type(conn)
     _init_connectedpages(conn)
 
 def breakdown_generated_tables(conn: db.Connection):
@@ -155,6 +187,26 @@ def breakdown_generated_tables(conn: db.Connection):
     connectedpages.drop(conn)
     metadata = db.MetaData()
     _init_db(metadata,conn)
+
+conn_c,engine_c = get_connection('sqlite:///cache.sqlite')
+
+# makes a throttled web request
+async def fetch_page_cached(session:aiohttp.ClientSession,throttler:Throttler,url:str)->str: 
+    html = None
+    try:
+        html_query_result = conn_c.execute(db.text(f'SELECT html FROM webpage WHERE url==\'{url}\'')).fetchall()
+        print(html_query_result)
+        if(len(html_query_result)==1):
+            html = html_query_result[0][0] 
+        # make GET request using session
+        async with throttler,session.get(url) as response:
+            # return HTML content
+            if(html==None):
+
+                html = await response.text()
+        return html
+    
+    except Exception as e:print(e)
 
 if __name__=='__main__':
     conn,engine = get_connection()
@@ -166,10 +218,13 @@ if __name__=='__main__':
     
     #init_downstream_cache(conn)
     print(len(conn.execute(connectedpages.select().order_by(connectedpages.c.strength.desc())).fetchall()))
-
+    print(conn.execute(webpage.select().limit(100)).fetchall())
+    print(conn.execute(db.text('SELECT COUNT(url) FROM WEBPAGE')).fetchone())
     #print(res)
     #print(len(res))
     #print(conn.execute(webpage.select().limit(10)).fetchall())
     #print(conn.execute(db.text('SELECT * FROM rank ORDER BY rank DESC limit 100')).fetchall())
 
     conn.close()
+
+
