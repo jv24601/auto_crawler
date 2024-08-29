@@ -2,3 +2,9 @@ aiohttp
 throttler
 sqlalchemy
 sqlalchemy_utils
+plotly
+bs4
+pandas
+scikit-learn
+matplotlib
+yellowbrick

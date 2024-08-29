@@ -36,7 +36,7 @@ async def process_batch(depth:int,throttler: Throttler,batch:list[any],conn:db.C
 
         # loop through URLs and append tasks
         for url in fetch_urls:
-            tasks.append(fetch_page_cached(session,throttler,url)) 
+            tasks.append(fetch_page(session,throttler,url)) 
 
         # group and Execute tasks concurrently
         htmls = await asyncio.gather(*tasks)
@@ -54,7 +54,7 @@ async def main():
     throttler = Throttler(get_throttle_limit()) # throttle network requests - wikipedia allows web crawling at small, slow scales
     async with aiohttp.ClientSession() as session:
 
-        iresponse = await fetch_page_cached(session,throttler,get_starting_url()) 
+        iresponse = await fetch_page(session,throttler,get_starting_url()) 
 
     depth = 0
 
@@ -90,7 +90,7 @@ async def main():
 
     # close database connections
     conn.close()
-    db_services.close_cache()
+    close_cache()
 
 if __name__=='__main__':
     asyncio.run(main())

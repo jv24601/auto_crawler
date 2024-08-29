@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 
 # Custom, slow data processing utilities that may not be relevant to your web-scraping, so I am skipping it by default.
-USE_PAGETYPE = False
+USE_PAGETYPE = True
 
 # a quick check for if a beautiful soup is for an album article
 def is_soup_album_page(soup):

@@ -12,7 +12,7 @@ from throttler import Throttler
 def get_connection(url: str | None = None)->db.Connection | None:
 
     if(url==None):
-        url = 'sqlite:///auto_crawler.sqlite'
+        url = 'sqlite:///jazz_crawler.sqlite'
 
 
     # creates the database if it does not exist

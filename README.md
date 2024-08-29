@@ -7,8 +7,11 @@ QUICKSTART (assuming you have a python env with all the requirements):
 
 1. Modify the settings in crawler_settings.py according to your needs, mainly the starting_url and throttle limit.
 2. Run crawler.py.
+3. Run the vizu.ipynb for example visualizaitons.
 
 The program will do a breadth-first search through the links on webpages, follow each one. 
+
+Note that some columns like pagetype may not fill with values for non-music pages. Modify according to your needs!
 
 Here are some things still to-do:
 
